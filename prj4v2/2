@@ -1,0 +1,4 @@
+gcc -Wall -g -O0 -Werror -pedantic -ansi -c -o os-sim.o os-sim.c
+gcc -Wall -g -O0 -Werror -pedantic -ansi -c -o list.o list.c
+gcc -Wall -g -O0 -Werror -pedantic -ansi -o os-sim student.o os-simgcc -Wall -g -O0 -Werror -pedantic -ansi -o os-sim student.o os-sim.o process.o list.o -lpthread
+ntic -ansi -o os-sim student.o os-sim.o process.o list.o -lpthread

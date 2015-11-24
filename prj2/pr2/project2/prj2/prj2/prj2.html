@@ -1,0 +1,264 @@
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<title>CS 2200 Fall 2013 Project 2</title>
+</head><body>
+<h1>
+<table>
+<tbody><tr>
+<td>
+<img src="pics/tinylogo.jpg" alt="CS 2200" align="center" border="0"></td>
+<td><h1>CS 2200 Intro to Systems and Networks<br>Project 2<br>Fall 2013</h1>
+</td>
+</tr>
+</tbody></table>
+</h1>
+<p>
+We have just spent the last few weeks implementing our 16-bit datapath.  The
+simple 16-bit LC-2200 is capable of performing advanced computational tasks
+and logical decision making.  Now it is time for us to move on to something
+more advanced.
+</p>
+<p>
+We have invested a great deal of time and money into developing a more powerful
+LC-2200 computer.  This one is 32-bits and supports interrupts.
+</p>
+<p>
+The only trouble is that the interrupts support does not appear to be completed.
+We are quite disappointed by this, and so it is your assignment to fully implement
+and test interrupts using the provided datapath and Logisim.
+</p>
+<p>
+In this project, you will add the additional support needed to make all this work properly.
+ Your job will be to hook up the interrupt acknowledge lines to the input devices,
+ modify the datapath to support interrupt operations, and write an interrupt handler
+ to increment the clock value at a designated memory address.
+</p>
+
+<b>Your Job: Fully Enable Interrupt Support</b>
+  <ul>
+  <li>Part 1: Initial Interrupt Hardware Support
+  </li><li>Part 2: Controller Interrupt Support
+  </li><li>Part 3: Interrupt Handler for the Clock
+  </li><li>Extra Credit: Implement bonus instructions
+  </li></ul>
+
+
+<hr>
+
+<a name="what"><h2>What We've Provided</h2></a>
+<p> 
+We have provided you with a number of resources that will allow you to get started:
+
+<ul>
+    <li>A <a href="LC-2200-32.html">reference guide</a> to the LC2200-32 <b>PLEASE READ FIRST</b></li>
+    <li>An INCOMPLETE LC2200-32 datapath circuit (without interrupt support)</li>
+    <li>Intergenerator subcircuit which will generate an interrupt signal every so often (AKA the "clock interrupt")</li>
+    <li>Complete microcode from project 1 (without interrupt support)</li>
+    <li>The compiler for the microcode</li>
+    <li>An INCOMPLETE assembly program (prj2.s) to run on the datapath to test interrupt support</li>
+    <li>An Assembler to assemble the above program</li>
+    <li>An example assembly program to demonstrate the use of the optional bonus instructions (bonus_example.asm)</li>
+</ul>
+</p>
+
+<!-- ******************************************************************* -->
+<!-- ******************************************************************* -->
+<!-- ******************************************************************* -->
+<hr>
+<a name="ints"><h2>Interrupt Support</h2></a>
+<a name="p0"><h4>Part 1: Initial Interrupt Hardware Support</h4></a>
+
+<p>
+For this part of the assignment, you need to add hardware support for interrupts to the LC2200-32 datapath.
+You have been provided with a completed LC2200-32 datapath from project 1.  Keep in mind this is a 32-bit implementation; the LC2200 in project 1 was a 16-bit implementation.
+</p>
+<b>You need to:</b>
+<ol>
+    <li>Create an Interrupts Enabled Register (aka <b>IE</b>) so we can keep track of whether or not
+    interrupts are currently enabled or disabled.</li></br>
+
+    <li>Connect the clock interrupt (Intergenerator) to the datapath and make modifications such that:
+        <ul>
+            <li>the microcontroller is signaled when an interrupt is received</li>
+            <li>the interrupt continues to be signaled until it receives an <b>IntACK</b> signal</li>
+            <li>once IntACK is received, it should drive its device index onto the bus in either the same or the
+                next clock cycle. Use 0x1 for the device index.</li>
+        </ul></br>
+        You will need to modify the existing hardware that we gave you to meet the above requirements. At the very
+        least you will need to build:
+        <ul>
+            <li>hardware to store the interrupt signal in case it is not immediately acknowledged</li>
+            <li>hardware that will drive the device index onto the bus once IntACK is received (in either the same or next cycle)</li>
+        </ul>
+    </li></br>
+
+    <li>Modify the datapath so that the PC starts on 0x000010 when the processor is reset. Normally, the PC starts at 0x000000
+        since this is where the first line of our code was located BUT we will need to load the interrupt vector table at address 0x000000 (in part 3).
+        Therefore, when you actually go to run your code that you wrote in part 2, it needs to start at 0x100000.   
+    </li></br>
+
+    <li>Create hardware to support selecting the register $k0 within microcode. This is needed by some interrupt related instructions.
+        <ul>
+            <li><b>HINT:</b> use only the register selection bits that the main ROM already outputs to select it</li>
+        </ul>
+    </li>
+</ol>
+<hr>
+
+<a name="p1"><h4>Part 2: Controller Interrupt Support</h4></a>
+
+<strong>Before beginning this part, be sure you have read through the
+<a href="LC-2200-32.html">LC2200-32 Reference Guide</a> and pay special attention to  the new instruction set.</strong>
+
+<p>In this part of the assignment you will modify the microcode of the LC2200-32 to support interrupts.</p>
+
+<p>
+    <b>The Microcontroller:</b>
+        <a href="microcontroller/microsequenced-rom.html">Click here to see the README.</a>
+</p>
+
+<p><b>You need to:</b></p>
+
+<ol>
+    <li>Modify the microcontroller to support interrupts. This involves:
+        <ol>
+            <li>Make the necessary modifications to the microcontroller.
+                Be sure to read through the linked README file for the microcontroller and
+                look at its implementation within LC2200-32.circ as there are instructions and
+                guidance for what will need to be supported.
+            <li>Modify the microcontroller to support asserting two new signals:
+                <ul>
+                    <li>LdEnInt (This asserts the load input of the IE register)</li>
+                    <li>IntACK (this sends an interrupt acknowledge to the device)</li>
+                </ul>
+            </li>
+            <li>Extend the size of the main ROM accordingly</li>
+            <li>Fully hook up the microcontroller to the datapath before continuing (our provided version is not 100% hooked up)</li>
+        </ol>
+    </li></br>
+    <li>Modify the FETCH macrostate microcode so that we actively check for interrupts. Normally this is done within the INT macrostate (as described in chapter 4 of the
+        book and in class lectures) but we are rolling this functionality into FETCH for the sake of simplicity. You can accomplish this by modifying FETCH in the following way:
+        <ol>
+            <li>First check to see if an interrupt is raised</li>
+            <li>If not, FETCH continues normally</li>
+            <li>If an interrupt is raised then:
+                <ol>
+                    <li>Save the current PC into $k0</li>
+                    <li>Disable interrupts</li>
+                    <li>Assert the interrupt acknowledge line (IntACK). Next, take the device index on the bus and use it to index into the Interrupt Vector Table
+                        (at 0x000001) and retrieve the new PC value. This new PC value should then be loaded into the PC. This second step can either be done during the same clock cycle
+                        as the IntACK assertion or the next (depending on how you chose to implement the hardware support for this in Part 1).
+                    </li>
+                    <li>Continue with the FETCH macrostate</li>
+                </ol>
+            </li>
+        </ol> 
+    
+        <p><b>NOTE: To do this new conditional in the FETCH macrostate, we have
+        supplied you with a new attribute of the state tag, onInt.  onInt works
+        in the same manner that
+        onZ did in Project 1.  After a microstate in which you enable the LdEnInt
+        signal from the main ROM you should have two states, one will be marked
+        with onInt="true" and the other onInt="false", depending on the state of
+        the IE register. </b>
+
+        </p>
+        </p><p>
+For the microsequenced ROM, this new attribute will be used as follows: <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&lt;State name=&#8221;name0&#8221;  onInt=&#8221;true&#8221;&gt;
+</p>
+    </li>
+    <li>Implement the microcode for the three new instructions for supporting interrupts as
+        described in Chapter 4. These are the EI, DI, and RETI instructions.  You
+        need to write the microcode in the main ROM controlling the datapath
+        for these three new instructions.
+        <ul>
+            <li> EI sets the IE register to 1.</li>
+            <li> DI sets the IE register to 0.</li>
+            <li> RETI loads $k0 into PC, and enables interrupts.</li>
+        </ul>
+    </li>
+</ol>
+<p></p>
+
+
+
+<!-- ******************************************************************* -->
+<!-- ******************************************************************* -->
+<!-- ******************************************************************* -->
+<hr>
+<a name="p2"><h4>Part 3: Implement the Interrupt Handler</h4></a>
+<p>
+Our datapath and microcontroller now fully support interrupts BUT we still need
+to implement an interrupt handler within prj2.s to support interrupts without interfering
+with the correct operation of any user programs.
+</p>
+<p>In prj2.s we provide you with a program that runs in
+the background.  For part 3 of this project, you have to write an
+interrupt handler for the clock device (Intergenerator). You should refer to Chapter 4 of the
+textbook to see how to write a correct interrupt handler. As detailed
+in that chapter, your handler will need to do the following:
+<ol>
+    <li>First save the current value of $k0 (the return address to where you came from into this handler), and the
+        state of the interrupted program
+    </li>
+    <li>Enable interrupts (which would have been disabled implicitly by the processor in the FETCH
+        macrostate)
+    </li>
+    <li>Implement the actual work to be done in the handler. In the case of this project, we want you to <b>increment a clock variable in memory</b></li>
+    <li>Restore the state of the original program and return to where it came from (use RETI)</li>
+</ol>
+</p><p>
+The handler you have written should run every time the clock interrupt
+is triggered.  Even though there is only one interrupt for this project, the handler SHOULD be written such that interrupts can be
+nested (i.e., higher priority interrupts should be allowed while
+running the handler). With that in mind, interrupts should be
+enabled for as long as possible within the handler.
+</p>
+
+<b>You need to:</b>
+<ol>
+    <li>Load the starting address of the handler into the interrupt vector table at address 0x000001.</li>
+    <li>Write the interrupt handler (should follow the above instructions or simply refer to chapter 4 in your book).
+        In the case of this project, we want the interrupt handler to keep time in memory at some predetermined locations:
+            <ul>
+                <li>0xF00000 - seconds</li>
+                <li>0xF00001 - minutes</li>
+                <li>0xF00002 - hours</li>
+            </ul>
+        You should assume that the clock interrupt fires every second.
+    </li>
+    <li>Complete the two FIXME's located in prj2.s. You should read through this file as it contains more information about this part of the project.</li>
+</ol>
+<!-- ******************************************************************* -->
+<!-- ******************************************************************* -->
+<!-- ******************************************************************* -->
+
+<hr> <h4>Extra Credit: Implement bonus instructions</h4></hr>
+<b>For extra credit</b>, you can implement one or more non-trivial instructions.  The assembler will accept BONI, BONJ, BONR, and BONO as valid instructions.  You need to implement at least one of them and demonstrate it's use during demo.  Some good places to start might be push, pop, sub, mult, inc and so on.  See the <a href="LC-2200-32.html" target="LC-2200-32.html">LC-2200-32 processor reference manual </a> for details about the instructions.  Your tools for creating the microcode will also support these new instructions, although <b>you will have to define some microcode for the bonus instructions even if you don't implement them.</b>
+
+<hr>
+<a name="turnin"><h4>What To Turn In</h4></a>
+<p>
+You should turn in the following files to Tsquare:
+</p>
+<ol>
+    <li>prj2.s</li>
+    <li>LC-2200-32.circ</li>
+    <li>microcode_<i>lastname</i>.xml (please replace <i>lastname</i> with your actual lastname)</li>
+</ol>
+<br><br>
+<hr>
+<em>End of CS 2200 Fall 2013 Project 2</em>
+<p>
+<code>
+<b>Changelog</b></br>
+Michael Strain for Fall 2010 - initial version</br>
+Matthew Amidon for Spring 2011 - modifications</br>
+Matthew Amidon for Summer 2011 - modifications</br>
+Craig Campbell for Fall 2011 - rewrote instructions, reformatted for clarity. updated intergenerator.circ to load properly in logisim.</br>
+Matthew Amidon for Spring 2013 - rewrote fsmrom.</br>
+Victor Lee for Fall 2013 - modifications</br>
+Kyle Kelly for Fal 2013 - merged intergenerator as a subcircuit</br>
+</code>
+</p></body></html>

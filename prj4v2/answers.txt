@@ -1,0 +1,41 @@
+CS 2200 Fall 2013
+Project 4
+Name: Thanh Ky Quan
+GT Number: 902977469
+ 
+Problem 1B
+----------
+Execution time 1 CPU: 68.0 s
+Execution time 2 CPUs: 44.8s
+Execution time 4 CPUs: 33.6 s
+It is not linear relationship between the number of CPUs and total execution time because I/O requests can only be run sequential. According to Amdahl’s law, we can only speed up parallel parts, not sequential parts.
+Problem 2B
+----------
+Timeslice 800ms execution time: 228.9 s
+Timeslice 600ms execution time: 182.0 s
+Timeslice 400ms execution time: 138.1 s
+Timeslice 200ms execution time: 71.2 s
+Shortest possible timeslice is not the best choice because when the time slice is small context switch will be called more frequently, thus need more time to do context switch. Moreover, CPU will be utilized to do context switching more than do real work.
+ 
+Problem 3B
+----------
+FCFS:
+# of Context Switches: 102
+Total execution time: 68.3 s
+Total time spent in READY state: 176.8 s
+
+Static priority: 
+# of Context Switches: 168
+Total execution time: 68.8 s
+Total time spent in READY state: 50.1 s
+
+Round robin:
+# of Context Switches: 673
+Total execution time: 67.6 s
+Total time spent in READY state: 41.0 s
+
+Since round robin will give each process equal time and chance to execute. process will shortest CPU burst will eventually finish first. In fact, all processes should be finished in ascending CPU burst time order.
+
+p.s.: Static priority will behave like SJF if we use 1/CPU burst time for priority.
+
+

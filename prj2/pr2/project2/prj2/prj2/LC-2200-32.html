@@ -1,0 +1,262 @@
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<title>CS 2200 Fall 2013 Project 2 - LC-2200-32 Processor Reference Manual</title>
+</head><body>
+<h1>
+<table>
+<tbody><tr>
+<td>
+<img src="pics/tinylogo.jpg" alt="CS 2200" align="center" border="0"></td>
+<td>
+<h1>CS 2200 Intro to Systems and Networks<br>
+    Project 2 - LC-2200-32 Processor Reference Manual <br>
+    Fall 2013<br></h1>
+</td>
+</tr>
+</tbody></table>
+</h1>
+
+
+<!--
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+<title>CS 2200 Summer 2011 Project 2 - LC-2200-32 Processor Reference Manual</title>
+</head><body>
+<table><tbody><tr>
+<td>
+<img src="LC-2200-32_files/a" alt="CS 2200" border="0">
+
+</td>
+<td>tywsrethyaerhgaaaaaa
+<h1>CS 2200 Intro to Systems and Networks<br>
+    Project 2 - LC-2200-32 Processor Reference Manual <br>
+    Summer 2011<br></h1>
+</td>
+</tr></tbody></table>
+-->
+
+<p>
+This document describes the LC-2200-32 processor enhanced with interrupt
+ support instructions, and the FSM for its implementation.
+This manual assumes you
+have familiarity with the LC-2200 datapath.
+</p><ol>
+<li>The Instruction Set</li>
+<li>The Datapath</li>
+<li>The FSM ROM</li>
+<li>Interrupts Support</a>
+<ol>
+<li>Memory-Mappings</li>
+<li>Hardware Timer</li>
+</ol>
+</li>
+</ol>
+<p></p>
+<hr>
+<a name="isa"><h2>The Instruction Set (enhanced with Interrupt support)</h2></a>
+<pre>The LC-2200-32 is a 32-bit computer with 16 general registers plus a
+separate program counter (PC) register.  All addresses are word addresses.
+Register 0 is wired to zero: it always reads as zero and writes to it
+are ignored.
+
+-----------------------------------------------------------------
+                          Instruction Formats
+-----------------------------------------------------------------
+There are four instruction formats.  Bit 0 is the least-significant:
+
+R-type instructions (add,nand):
+ bits 31-28: opcode
+ bits 27-24: reg X
+ bits 23-20: reg Y
+ bits 19-4:  unused (should be all 0s)
+ bits 3-0:   reg Z
+
+I-type instructions (addi, lw, sw, beq):
+ bits 31-28: opcode
+ bits 27-24: reg X
+ bits 23-20: reg Y
+ bits 19-0:  OFFSET (a 20-bit, 2s complement number with a range
+                     of -524288 to +524287
+
+J-type instructions (jalr):
+ bits 31-28: opcode
+ bits 27-24: reg X
+ bits 23-20: reg Y
+ bits 19-0:  unused (should be all 0s)
+
+O-type instructions (halt, ei, di, reti):
+ bits 31-28: opcode
+ bits 27-0:  unused (should be all 0s)
+
+-----------------------------------------------------------------
+                         Register Convention
+-----------------------------------------------------------------
+Registers indicated with a '$' sign.  The register names in assembly
+are according to their use in the assembly convention:
+
+regno   name                      use                  callee-save
+-----   ----            -------------------------      -----------
+  0     $zero           always zero (by hardware)         n.a.
+  1     $at             reserved for assembler            n.a.
+  2     $v0             return value                      no
+  3     $a0             argument or temporary             no
+  4     $a1             argument or temporary             no
+  5     $a2             argument or temporary             no
+  6     $a3             argument or temporary             no
+  7     $a4             argument or temporary             no
+  8     $s0             saved register                    YES
+  9     $s1             saved register                    YES
+ 10     $s2             saved register                    YES
+ 11     $s3             saved register                    YES
+ 12     $k0             reserved for OS/traps             n.a.
+ 13     $sp             stack pointer                     YES
+ 14     $fp             frame pointer                     YES
+ 15     $ra             return address                    YES
+
+-----------------------------------------------------------------
+                    Instruction Semantics
+-----------------------------------------------------------------
+Assembly language       Opcode in binary      Action
+name for instruction    (bits 31/30/29/28)
+-----------------------------------------------------------------
+add (R-type format)       0000      add contents of RY with
+  ex: add $v0, $a0, $a1             contents of RZ, store results in
+                                    RX.  Ex: $v0 := $a0 + $a1
+
+nand (R-type format)      0001      nand contents of RY with
+  ex: nand $v0, $a0, $a1            contents of Z, store results in
+                                    RX.  Ex: $v0 := ~($a0 + $a1)
+
+addi (I-type format)      0010      Add OFFSET to the contents of RY
+  ex: addi $v0, $a0, 25             and store the result in RX.
+                                    Ex:  $v0 := $a0 + 25
+
+lw (I-type format)        0011      load RX from memory.  The memory
+  ex: lw $v0, 0x42($fp)             address is formed by adding
+                                    OFFSET to the contents of RY.
+                                    Ex: $v0 := memory[$fp + 0x42]
+
+sw (I-type format)        0100      store RX into memory. The memory
+  ex: sw $a0, 0x42($fp)             address is formed by adding
+                                    OFFSET to the contents of RY.
+                                    Ex: memory[$fp + 0x42] := $a0
+
+beq (I-type format)       0101      compare the contents of RX and RY.
+  ex: beq $a0, $a1, done            If they are the same, then
+                                    branch to the address
+                                    PC+1+OFFSET, where PC is the
+                                    address of the beq instruction.
+                                    Ex: if ($a0 == $a1)
+                                           PC := (PC+1)+OFFSET
+
+                                            *** NOTE ***
+
+                                    For programmer convenience (and
+                                    implementor confusion), the
+                                    assembler *computes* the OFFSET
+                                    value from the number or symbol
+                                    given in the instruction and the
+                                    assemblers idea of the PC.  In the
+                                    example, the assembler stores
+                                    done-(PC+1) in OFFSET so that
+                                    the machine will branch to label
+                                    "done" at run time.
+
+jalr (J-type format)      0110      First store PC+1 into RY,
+  ex: jalr $at, $ra                 where PC is the address of the
+                                    jalr instruction.  Then branch to
+                                    the address now contained in RX.
+                                    Note that if RX is the same as RY,
+                                    the processor will first store
+                                    PC+1 into that register, then end
+                                    up branching to PC+1.
+                                    Ex: $ra := PC+1; PC := $a0
+
+halt (O-type format)      0111      halt the machine:  i.e. do nothing
+  ex: halt                          and let the simulator notice that
+                                    the machine halted.
+
+bonr (R-type format)	  1000	    Optional bonus R-type instruction.
+bono (O-type format)	  1001	    Optional bonus O-type instruction.
+
+ei (O-type format)        1010      enable interrupts
+  ex: ei
+
+di (O-type format)        1011      disable interrupts
+  ex: di
+
+reti (O-type format)      1100      return from interrupt by loading address
+  ex: reti                          stored in $k0 into the PC and then
+                                    enabling interrupts
+
+boni (I-type format)	  1101	    Optional bonus I-type instruction.
+bonj (J-type format)	  1110 	    Optional bonus J-type instruction.
+
+----Assembler Directives----
+
+noop (pseudo-op)          n.a.      No operation: does nothing (actually
+  ex: noop                          Emits "add $zero, $zero, $zero")
+
+.word (pseudo-op)         n.a.      fill word with a value.
+  ex: .word  32                     Ex: fill the current location
+                                    with the 32-bit represenation of
+                                    the number "32".
+
+la (psuedo-op)            n.a.      Loads address of label into register
+  ex: la $sp, stack                 (actually emits addi $sp, $zero, stack)
+
+</pre>
+<hr>
+<a name="dp"><h2>The Datapath</h2></a>
+<p>The following is a diagram of the LC-2200-32 datapath.</p>
+<p><a href="pics/datapath.png" target="pics/datapath.png"><img src="pics/datapath.png" border="0"></a></p>
+<p>
+The meaning of each signal is defined in the FSM ROM section below.
+</p>
+<p>
+A description of each datapath component follows.
+</p>
+<ul>
+<li><strong>PC</strong> : the program counter register.
+</li><li><strong>Z</strong> : zero-detection register (1-bit register used for determining when a branch should occur).
+</li><li><strong>ALU</strong> : performs four functions: add, nand, subtract, and
+                           increment.
+</li><li><strong>Register File</strong> : contains 16 32-bit registers.
+</li><li><strong>IE</strong> : interrupts enabled register (1-bit register; interrupts are on if its output is 1; off if its output is 0).
+</li><li><strong>MAR</strong> : Memory address register (address to be supplied to the memory for read/write).
+</li><li><strong>Memory</strong> : RAM unit may be read from and written to the bus
+</li><li><strong>IR</strong> : instruction register, which contains the 32-bit instruction
+                          currently being executed.
+</li><li><strong>sign extender</strong> : extends the 20-bit offset in the IR to
+                                     32-bit value suitable for driving onto the
+                                     bus.
+</li></ul>
+<hr>
+<p>
+
+</p><hr>
+<a name="int"><h2>Interrupts Support</h2></a>
+<p>
+<font color="red"><strong>Some items mentioned in this section are <em>not</em>
+implemented yet.  The implementation is part of your assignment for this project.
+</strong></font>
+</p>
+<ol>
+<li>Memory-Mappings</li>
+<li>Hardware Timer</li>
+</ol>
+
+<a name="mem"><h3>Memory-Mappings</h3></a>
+<p> For the purposes of this assignment, we have chosen to keep the interrupt vector table to be located
+ at address 0x00000000 and has a length of 16. Program memory starts at 0x00000010.
+ </p>
+ <a name="timer"><h3>Hardware Time</h3></a>
+ <p>
+ The hardware timer will fire every so often.  You should configure it
+as device 1; it should place the assigned index (its driver
+ is located on the vector table) onto the bus when it receives an IntAck
+ signal from the processor.
+ </p>
+
+ Go back to the <a href="prj2.html" target="prj2.html"> main project </a> page.</body></html>

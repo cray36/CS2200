@@ -1,0 +1,211 @@
+<!-- Tuan Nguyen
+     CS 2200
+     Processor
+-->
+<Microcode>
+	<!--Fetch Macro State-->
+	<State name="FETCH0">
+		<Signal name = "DrPC"/>
+		<Signal name = "LdA"/>
+		<Signal name = "LdMAR"/>
+		<Goto state="FETCH1"/>
+	</State>
+	<State name="FETCH1">
+		<Signal name = "DrMEM"/>
+		<Signal name = "LdIR"/>
+		<Goto state="FETCH2"/>
+	</State>
+	<State name="FETCH2">
+		<Signal name="DrALU"/>
+		<Signal name="LdPC"/>
+		<Signal name="ALUHi"/>
+		<Signal name="ALULo"/>
+		<Signal name="OPTest"/>
+		<Goto state=""/>
+	</State>
+	<!--
+		ADD - R-Type instruction
+		ADD Rx, Ry, Rz
+	-->
+	<State name="ADD0">
+		<Signal name="LdA"/>
+		<Signal name="RegSelLo"/>
+		<Signal name="DrREG"/>
+		<Goto state="ADD1"/>
+	</State>
+	<State name="ADD1">
+		<Signal name="LdB"/>
+		<Signal name = "RegSelHi"/>
+		<Signal name="DrREG"/>
+		<Goto state="ADD2"/>
+	</State>
+	<State name="ADD2">
+		<Signal name="DrALU"/>
+		<Signal name="WrREG"/>
+		<Goto state="FETCH0"/>
+	</State>
+	<!-- 
+		ADDI - I-Type instruction
+		ADDI Rx, Ry, OFFSET
+	-->
+	<State name="ADDI0">
+		<Signal name="LdA"/>
+		<Signal name="RegSelLo"/>
+		<Signal name="DrREG"/>
+		<Goto state="ADDI1"/>
+	</State>
+	<State name="ADDI1">
+		<Signal name="DrOFF"/>
+		<Signal name="LdB"/>
+		<Goto state="ADDI2"/>
+	</State>
+	<State name="ADDI2">
+		<Signal name="DrALU"/>
+		<Signal name="WrREG"/>
+		<Goto state="FETCH0"/>
+	</State>
+	<!--
+		NAND - R-Type instruction
+		NAND Rx, Ry, Rz
+	-->
+	<State name="NAND0">
+		<Signal name="LdA"/>
+		<Signal name="RegSelLo"/>
+		<Signal name="DrREG"/>
+		<Goto state="NAND1"/>
+	</State>
+	<State name="NAND1">
+		<Signal name="LdB"/>
+		<Signal name="DrREG"/>
+		<Signal name="RegSelHi"/>
+		<Goto state="NAND2"/>
+	</State>
+	<State name="NAND2">
+		<Signal name="ALULo"/>
+		<Signal name="DrALU"/>
+		<Signal name="WrREG"/>
+		<Goto state="FETCH0"/>
+	</State>
+	<!-- 
+		JALR - J-Type instruction
+		JALR Rx, Ry
+	-->
+	<State name="JALR0">
+		<Signal name="DrPC"/>
+		<Signal name="RegSelLo"/>
+		<Signal name="WrREG"/>
+		<Goto state="JALR1"/>
+	</State>
+	<State name="JALR1">
+		<Signal name="DrREG"/>
+		<Signal name="LdPC"/>
+		<Goto state="FETCH0"/>
+	</State>
+	<!-- 
+		LW - I-Type instruction
+		LW Rx, Ry, OFFSET
+		Rx = MEMORY[Ry + signed address offset]
+	-->
+	<State name="LW0">
+		<Signal name="RegSelLo"/>
+		<Signal name="DrREG"/>
+		<Signal name="LdA"/>
+		<Goto state="LW1"/>
+	</State>
+	<State name="LW1">
+		<Signal name="DrOFF"/>
+		<Signal name="LdB"/>
+		<Goto state="LW2"/>
+	</State>
+	<State name="LW2">
+		<Signal name="DrALU"/>
+		<Signal name="LdMAR"/>
+		<Goto state="LW3"/>
+	</State>
+	<State name="LW3">
+		<Signal name="DrMEM"/>
+		<Signal name="WrREG"/>
+		<Goto state="FETCH0"/>
+	</State>
+	<!--
+		SW - I-Type instruction
+		SW Rx, Ry, OFFSET
+		MEMORY[Ry + signed address offset] = Rx
+	-->
+	<State name="SW0">
+		<Signal name="RegSelLo"/>
+		<Signal name="LdA"/>
+		<Signal name="DrREG"/>
+		<Goto state="SW1"/>
+	</State>
+	<State name="SW1">
+		<Signal name="DrOFF"/>
+		<Signal name="LdB"/>
+		<Goto state="SW2"/>
+	</State>
+	<State name="SW2">
+		<Signal name="DrALU"/>
+		<Signal name="LdMAR"/>
+		<Goto state="SW3"/>
+	</State>
+	<State name="SW3">
+		<Signal name="WrMEM"/>
+		<Signal name="DrREG"/>
+		<Goto state="FETCH0"/>
+	</State>
+	<!--
+		BEQ - I-Type instruction
+		BEQ Rx, Rz, OFFSET
+		if (Rx == Rz), PC = PC + 1 + OFFSET
+		else nothing 
+	-->
+	<State name="BEQ0">
+		<Signal name="LdA"/>
+		<Signal name="DrREG"/>
+		<Goto state="BEQ1"/>
+	</State>
+	<State name="BEQ1">
+		<Signal name="LdB"/>
+		<Signal name="RegSelLo"/>
+		<Signal name="DrREG"/>
+		<Goto state="BEQ2"/>
+	</State>
+	<State name="BEQ2">
+		<Signal name="ALUHi"/>
+		<Signal name="DrALU"/>
+		<Signal name="LdZ"/>
+		<Signal name="chkZ"/>
+	</State>
+	<!-- condition being false, just continue-->
+	<State name="FETCH8" onZ="false">
+		<Signal name="LdA"/>
+		<Signal name="DrPC"/>
+		<Signal name="LdMAR"/>
+		<Goto state="FETCH1"/>
+	</State>
+	<!-- when onZ is true, or equality happens -->
+	<State name="BEQ3" onZ="true">
+		<!-- Store PC to A -->
+		<Signal name="LdA"/>
+		<Signal name="DrPC"/>
+		<Goto state="BEQ4"/>
+	</State>
+	<State name="BEQ4">
+		<!-- Store OFFSET to B -->
+		<Signal name="DrOFF"/>
+		<Signal name="LdB"/>
+		<Goto state="BEQ5"/>
+	</State>
+	<State name="BEQ5">
+		<!-- PC = A+B -->
+		<Signal name="DrALU"/>
+		<Signal name="LdPC"/>
+		<Goto state="FETCH0"/>
+	</State>
+	<!--
+		Halt instruction, stop everything, or just don't go anywhere
+	-->
+	<State name="HALT0">
+		<Goto state="HALT0"/>
+	</State>
+</Microcode>
